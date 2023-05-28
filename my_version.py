@@ -14,7 +14,17 @@ BG_MUSIC = pygame.mixer.Sound(join("assets", "background-game-music.mp3"))
 BG_MUSIC.set_volume(0.1)
 
 HURT_SOUND = pygame.mixer.Sound(join("assets", "game-hurt.mp3"))
-HURT_SOUND.set_volume(5)
+HURT_SOUND.set_volume(1.0)
+
+#DEATH_SOUND = pygame.mixer.Sound(join("assets", "game-death-sound.mp3"))
+#DEATH_SOUND.set_volume(1.0)
+
+#JUMP_SOUND = pygame.mixer.Sound(join("assets", "game-jump-sound.mp3"))
+#JUMP_SOUND.set_volume(1.0)
+
+#GRASS_CRUNCH_RUN = pygame.mixer.Sound(join("assets", "game-grass-run-sound.mp3"))
+#GRASS_CRUNCH_RUN.set_volume(0.2)
+
 
 
 
@@ -121,7 +131,8 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
+        if self.y_vel < 9:
+            self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
         if self.hit:
@@ -259,7 +270,6 @@ def handle_vertical_collision(player, objects, dy):
             elif dy < 0:
                 player.rect.top = object.rect.bottom
                 player.hit_head()
-                HURT_SOUND.play(1, 0, 0)
             collided_objects.append(object)
     return collided_objects
 
@@ -295,7 +305,7 @@ def handle_move_collisions(player, objects):
     for object in to_check:
         if object and (object.name == "fire"):
             player.was_hit()
-            HURT_SOUND.play(1, 0, 0)
+            HURT_SOUND.play()
 
 
 
@@ -317,10 +327,12 @@ def main(win):
              range(- 2 * WIDTH // block_size, (WIDTH * 5) // block_size)]
     objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
                Block(block_size * 3, HEIGHT - block_size * 4, block_size),
-               fire, ]
+               fire,
+               Block(block_size * 4, HEIGHT - block_size * 4, block_size),
+               Block(block_size * 5, HEIGHT - block_size * 5, block_size)]
 
     offset_x = 0
-    scroll_area_width = 100
+    scroll_area_width = 200
 
     offset_y = 0
     scroll_area_height = 200
@@ -350,8 +362,8 @@ def main(win):
 
         if (player.rect.top - offset_y) <= scroll_area_height and player.y_vel < 0:
             offset_y += player.y_vel
-        elif (player.rect.bottom - offset_y) >= (HEIGHT - scroll_area_height) and player.y_vel > 2:
-            offset_y += 0.5 * player.y_vel
+        elif (player.rect.bottom - offset_y) >= (HEIGHT - scroll_area_height - player.height) and player.y_vel > 1:
+            offset_y += player.y_vel
 
     pygame.mixer.quit()
     pygame.quit()
