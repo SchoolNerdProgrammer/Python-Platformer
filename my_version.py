@@ -43,14 +43,18 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
 
 
 
+def get_block(size):
+    
+
 
 class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
     GRAVITY = 1
     SPRITES = load_sprite_sheets("MainCharacters", "MaskDude", 32, 32, True)
-
+    ANIMATION_DELAY = 4
 
     def __init__(self, x, y, width, height):
+        super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
         self.x = x
         self.y = y
@@ -80,22 +84,56 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        self.y_vel += min(1, (self.fall_count // fps) * self.GRAVITY)
+        ##self.y_vel += min(1, (self.fall_count // fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
-
         self.fall_count += 1
+        self.update_sprite()
+
+    def update(self):
+        self.rect = self.sprite.get_rect(topleft = (self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.sprite)
+
+
+
 
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.x_vel != 0:
             sprite_sheet = "run"
-        if self.y_vel > 0:
-            sprite_sheet = "fall"
-        elif self.y_vel < 0:
-            sprite_sheet = "jump"
+
+        sprite_sheet_name = sprite_sheet + "_" + self.direction
+        sprites = self.SPRITES[sprite_sheet_name]
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
+        self.sprite = sprites[sprite_index]
+        self.animation_count += 1
+        self.update()
+
+
     def draw(self, win):
-        self.sprite = self.SPRITES["idle_" + self.direction][0]
+
         win.blit(self.sprite, (self.rect.x, self.rect.y))
+
+
+class Object(pygame.sprite.Sprite):
+    def __init__(self, x, y, width, height, name=None):
+        super().__init__()
+        self.rect = pygame.Rect(x, y, width, height)
+        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.width = width
+        self.height = height
+        self.name = name
+        self.x = x
+        self.y = y
+
+    def draw(self, win):
+        win.blit(self.image, (self.rect.x, self.rect.y))
+
+class Block(Object):
+    def __init__(self, x, y, size):
+        super().__init__(x, y , size, size)
+        block = load_block(size)
+        self.image.blit(block, (0, 0))
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 #load_sprite_sheets("MainCharacter","MaskDude", 32, 32, True) - needs to be passed to player class to be used as class variable sprites
@@ -175,6 +213,7 @@ def main(win):
 
         player.loop(FPS)
         handle_move(player)
+        player.update_sprite()
         draw(win, background, bg_image, player)
 
 
