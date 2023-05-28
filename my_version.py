@@ -4,7 +4,10 @@ from os.path import isfile, join
 import json
 import random
 from pygame import mixer
+
 pygame.init()
+pygame.mixer.init()
+pygame.display.init()
 pygame.display.set_caption("Platformer for AI to play.")
 
 WIDTH, HEIGHT = 1000, 800
