@@ -2,6 +2,7 @@ import os, random, math, pygame
 from os import listdir
 from os.path import isfile, join
 import json
+import random
 
 pygame.init()
 pygame.display.set_caption("Platformer for AI to play.")
@@ -74,6 +75,10 @@ class Player(pygame.sprite.Sprite):
         self.animation_count = 0
         self.fall_count = 0
         self.jump_count = 0
+        self.hit = False
+        self.hit_count = 0
+
+
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
@@ -81,6 +86,10 @@ class Player(pygame.sprite.Sprite):
         self.jump_count += 1
         if self.jump_count == 1:
             self.fall_count = 0
+
+    def was_hit(self):
+        self.hit = True
+        self.hit_count = 0
 
     def move(self, dx, dy):
         self.rect.x += dx
@@ -101,8 +110,16 @@ class Player(pygame.sprite.Sprite):
     def loop(self, fps):
         self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
+
+        if self.hit:
+            self.hit_count += 1
+        if self.hit_count > fps:
+            self.hit = False
+            self.hit_count = 0
+
         self.fall_count += 1
         self.update_sprite()
+
 
     def landed(self):
         self.fall_count = 0
@@ -119,6 +136,8 @@ class Player(pygame.sprite.Sprite):
 
     def update_sprite(self):
         sprite_sheet = "idle"
+        if self.hit:
+            sprite_sheet = "hit"
         if self.x_vel != 0:
             sprite_sheet = "run"
         if self.y_vel != 0:
@@ -163,6 +182,36 @@ class Block(Object):
         block = load_block(size)
         self.image.blit(block, (0, 0))
         self.mask = pygame.mask.from_surface(self.image)
+
+class Fire(Object):
+    ANIMATION_DELAY = 5
+
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "fire")
+        self.fire = load_sprite_sheets("Traps", "Fire", width, height)
+        print(self.fire)
+        self.image = self.fire["off"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "off"
+
+    def on(self):
+        self.animation_name = "on"
+
+    def off(self):
+        self.animation_name = "off"
+
+    def loop(self):
+        sprites = self.fire[self.animation_name]
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(self.fire)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
+
 
 
 # load_sprite_sheets("MainCharacter","MaskDude", 32, 32, True) - needs to be passed to player class to be used as class variable sprites
@@ -224,16 +273,13 @@ def handle_vertical_collision(player, objects, dy):
     for object in objects:
         if pygame.sprite.collide_mask(player, object):
             if dy > 0:
-                #print(str((player.rect.y + player.rect.height) - 20) + "player bottom y")
-                #print(str(object.rect.y) + "object y")
-                if (player.rect.y + player.rect.height) - 20 <= object.rect.y:##
-                    player.rect.bottom = object.rect.top
-                    player.landed()
+                player.rect.bottom = object.rect.top
+                player.landed()
             elif dy < 0:
                 player.rect.top = object.rect.bottom
                 player.hit_head()
 
-        collided_objects.append(object)
+            collided_objects.append(object)
     return collided_objects
 
 def collide(player, objects, dx):
@@ -261,7 +307,13 @@ def handle_move_collisions(player, objects):
         player.move_left(VEL)
     elif keys[pygame.K_RIGHT] and not collide_right:
         player.move_right(VEL)
-    handle_vertical_collision(player, objects, player.y_vel)
+
+
+    vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
+    to_check = [*vertical_collide]
+    for object in to_check:
+        if object and (object.name == "fire"):
+            player.was_hit()
 
 
 
@@ -271,17 +323,22 @@ def main(win):
 
     block_size = 96
 
+    fire = Fire(300, HEIGHT - block_size - 64, 16, 32)
+    fire.on()
+
     player = Player(100, 100, 64, 64)
+
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in
              range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     objects = [*floor, Block(0, HEIGHT - block_size*2, block_size),
-               Block(block_size * 3, HEIGHT - block_size*4, block_size)]
+               Block(block_size * 3, HEIGHT - block_size*4, block_size),
+               fire]
 
 
 
 
     offset_x = 0
-    scroll_area_width = 200
+    scroll_area_width = 100
 
 
     run = True
@@ -298,6 +355,7 @@ def main(win):
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
         player.loop(FPS)
+        fire.loop()
         handle_move_collisions(player, objects)
         player.update_sprite()
         draw(win, background, bg_image, player, objects, offset_x)
