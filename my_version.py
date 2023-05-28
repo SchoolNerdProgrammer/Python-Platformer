@@ -40,7 +40,7 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
         else:
             all_sprites[image.replace(".png", "")] = sprites
 
-    print(all_sprites)
+    #print(all_sprites)
     return all_sprites
 
 
@@ -192,9 +192,7 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
     return all_sprites
 
 
-def convert_to_string(all_sprites):
-    vals = all_sprites[0]
-    print(vals)
+
 
 
 def get_background(name):
@@ -226,8 +224,11 @@ def handle_vertical_collision(player, objects, dy):
     for object in objects:
         if pygame.sprite.collide_mask(player, object):
             if dy > 0:
-                player.rect.bottom = object.rect.top
-                player.landed()
+                #print(str((player.rect.y + player.rect.height) - 20) + "player bottom y")
+                #print(str(object.rect.y) + "object y")
+                if (player.rect.y + player.rect.height) - 20 <= object.rect.y:##
+                    player.rect.bottom = object.rect.top
+                    player.landed()
             elif dy < 0:
                 player.rect.top = object.rect.bottom
                 player.hit_head()
@@ -236,14 +237,14 @@ def handle_vertical_collision(player, objects, dy):
     return collided_objects
 
 def collide(player, objects, dx):
-    player.move(dx, 0)
+    player.move(dx, -1)
     player.update()
     collided_object = None
     for object in objects:
         if pygame.sprite.collide_mask(player, object):
             collided_object = object
             break
-    player.move(-dx, 0)
+    player.move(-dx, 1)
     player.update()
 
     return collided_object
