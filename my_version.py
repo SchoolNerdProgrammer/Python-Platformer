@@ -1,7 +1,6 @@
 import os, random, math, pygame
 from os import listdir
 from os.path import isfile, join
-import json
 import random
 from pygame import mixer
 
@@ -9,6 +8,18 @@ pygame.init()
 pygame.mixer.init()
 pygame.display.init()
 pygame.display.set_caption("Platformer for AI to play.")
+
+#sounds
+BG_MUSIC = pygame.mixer.Sound(join("assets", "background-game-music.mp3"))
+BG_MUSIC.set_volume(0.1)
+
+HURT_SOUND = pygame.mixer.Sound(join("assets", "game-hurt.mp3"))
+HURT_SOUND.set_volume(5)
+
+
+
+
+
 
 WIDTH, HEIGHT = 1000, 800
 FPS = 60
@@ -91,6 +102,7 @@ class Player(pygame.sprite.Sprite):
     def was_hit(self):
         self.hit = True
         self.hit_count = 0
+
 
     def move(self, dx, dy):
         self.rect.x += dx
@@ -247,7 +259,7 @@ def handle_vertical_collision(player, objects, dy):
             elif dy < 0:
                 player.rect.top = object.rect.bottom
                 player.hit_head()
-
+                HURT_SOUND.play(1, 0, 0)
             collided_objects.append(object)
     return collided_objects
 
@@ -279,15 +291,20 @@ def handle_move_collisions(player, objects):
         player.move_right(VEL)
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
-    to_check = [*vertical_collide]
+    to_check = [*vertical_collide, collide_left, collide_right]
     for object in to_check:
         if object and (object.name == "fire"):
             player.was_hit()
+            HURT_SOUND.play(1, 0, 0)
+
 
 
 def main(win):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
+
+    #music
+    BG_MUSIC.play(10000, 0, 3000)
 
     block_size = 96
 
@@ -331,11 +348,12 @@ def main(win):
                 (player.rect.left - offset_x) <= scroll_area_width and player.x_vel < 0):
             offset_x += player.x_vel
 
-        if ((player.rect.top - offset_y) <= (scroll_area_height) and player.y_vel < 0):
+        if (player.rect.top - offset_y) <= scroll_area_height and player.y_vel < 0:
             offset_y += player.y_vel
-        elif (player.rect.bottom - offset_y) >= (HEIGHT - (scroll_area_height)) and player.y_vel > 2:
+        elif (player.rect.bottom - offset_y) >= (HEIGHT - scroll_area_height) and player.y_vel > 2:
             offset_y += 0.5 * player.y_vel
 
+    pygame.mixer.quit()
     pygame.quit()
 
 
