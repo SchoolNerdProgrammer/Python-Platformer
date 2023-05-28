@@ -16,6 +16,7 @@ win = pygame.display.set_mode((WIDTH, HEIGHT))
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
 
+
 ##load_sprite_sheets("MainCharacters","MaskDude", 32, 32, True) - needs to be passed to player class to be used as class variable sprites
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This loads the images in the assets folder.
     path = join("assets", dir1, dir2)
@@ -24,7 +25,8 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
     all_sprites = {}
 
     for image in images:
-        sprite_sheet = pygame.image.load(join(path, image)).convert_alpha()  # convert.alpha() is for generating a transparent background where possible
+        sprite_sheet = pygame.image.load(join(path,
+                                              image)).convert_alpha()  # convert.alpha() is for generating a transparent background where possible
         sprites = []
         for i in range(sprite_sheet.get_width() // width):
             surface = pygame.Surface((width, height), pygame.SRCALPHA, 32)
@@ -42,16 +44,21 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
     return all_sprites
 
 
-
-def get_block(size):
-    
+def load_block(size):
+    path = join("assets", "Terrain", "Terrain.png")
+    image = pygame.image.load(path).convert_alpha()
+    surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
+    rect = pygame.Rect(96, 0, size,
+                       size)  # change 96,0 to take different blocks  change size to change the width and height of the place you want to grab.
+    surface.blit(image, (0, 0), rect)
+    return pygame.transform.scale2x(surface)
 
 
 class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
     GRAVITY = 1
     SPRITES = load_sprite_sheets("MainCharacters", "MaskDude", 32, 32, True)
-    ANIMATION_DELAY = 4
+    ANIMATION_DELAY = 5
 
     def __init__(self, x, y, width, height):
         super().__init__()
@@ -66,6 +73,14 @@ class Player(pygame.sprite.Sprite):
         self.direction = "left"
         self.animation_count = 0
         self.fall_count = 0
+        self.jump_count = 0
+
+    def jump(self):
+        self.y_vel = -self.GRAVITY * 8
+        self.animation_count = 0
+        self.jump_count += 1
+        if self.jump_count == 1:
+            self.fall_count = 0
 
     def move(self, dx, dy):
         self.rect.x += dx
@@ -84,22 +99,36 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        ##self.y_vel += min(1, (self.fall_count // fps) * self.GRAVITY)
+        self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
         self.fall_count += 1
         self.update_sprite()
 
+    def landed(self):
+        self.fall_count = 0
+        self.y_vel = 0
+        self.jump_count = 0
+
+    def hit_head(self):
+        self.fall_count = 0
+        self.y_vel *= -0.8
+
     def update(self):
-        self.rect = self.sprite.get_rect(topleft = (self.rect.x, self.rect.y))
+        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.sprite)
-
-
-
 
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.x_vel != 0:
             sprite_sheet = "run"
+        if self.y_vel != 0:
+            if self.jump_count == 1:
+                sprite_sheet = "jump"
+            elif self.jump_count == 2:
+                sprite_sheet = "double_jump"
+        if self.y_vel > (self.GRAVITY * 1.2):
+            sprite_sheet = "fall"
+
 
         sprite_sheet_name = sprite_sheet + "_" + self.direction
         sprites = self.SPRITES[sprite_sheet_name]
@@ -108,10 +137,9 @@ class Player(pygame.sprite.Sprite):
         self.animation_count += 1
         self.update()
 
+    def draw(self, win, offset_x):
 
-    def draw(self, win):
-
-        win.blit(self.sprite, (self.rect.x, self.rect.y))
+        win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 
 class Object(pygame.sprite.Sprite):
@@ -125,18 +153,19 @@ class Object(pygame.sprite.Sprite):
         self.x = x
         self.y = y
 
-    def draw(self, win):
-        win.blit(self.image, (self.rect.x, self.rect.y))
+    def draw(self, win, offset_x):
+        win.blit(self.image, (self.rect.x - offset_x, self.rect.y))
+
 
 class Block(Object):
     def __init__(self, x, y, size):
-        super().__init__(x, y , size, size)
+        super().__init__(x, y, size, size)
         block = load_block(size)
         self.image.blit(block, (0, 0))
         self.mask = pygame.mask.from_surface(self.image)
 
 
-#load_sprite_sheets("MainCharacter","MaskDude", 32, 32, True) - needs to be passed to player class to be used as class variable sprites
+# load_sprite_sheets("MainCharacter","MaskDude", 32, 32, True) - needs to be passed to player class to be used as class variable sprites
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This loads the images in the assets folder.
     path = join("assets", dir1, dir2)
     images = [f for f in listdir(path) if isfile(join(path, f))]
@@ -144,7 +173,8 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
     all_sprites = {}
 
     for image in images:
-        sprite_sheet = pygame.image.load(join(path, image)).convert_alpha()  # convert.alpha() is for generating a transparent background where possible
+        sprite_sheet = pygame.image.load(join(path,
+                                              image)).convert_alpha()  # convert.alpha() is for generating a transparent background where possible
         sprites = []
         for i in range(sprite_sheet.get_width() // width):
             surface = pygame.Surface((width, height), pygame.SRCALPHA, 32)
@@ -158,12 +188,13 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):  # This load
         else:
             all_sprites[image.replace(".png", "")] = sprites
 
-    #print(all_sprites)
+    # print(all_sprites)
     return all_sprites
 
+
 def convert_to_string(all_sprites):
-        vals = all_sprites[0]
-        print(vals)
+    vals = all_sprites[0]
+    print(vals)
 
 
 def get_background(name):
@@ -179,28 +210,79 @@ def get_background(name):
     return tiles, image
 
 
-def draw(win, background, bg_image, player):
+def draw(win, background, bg_image, player, objects, offset_x):
     for tile in background:
         win.blit(bg_image, tile)
 
-    player.draw(win)
+    for object in objects:
+        object.draw(win, offset_x)
+
+    player.draw(win, offset_x)
     pygame.display.update()
 
 
-def handle_move(player):
+def handle_vertical_collision(player, objects, dy):
+    collided_objects = []
+    for object in objects:
+        if pygame.sprite.collide_mask(player, object):
+            if dy > 0:
+                player.rect.bottom = object.rect.top
+                player.landed()
+            elif dy < 0:
+                player.rect.top = object.rect.bottom
+                player.hit_head()
+
+        collided_objects.append(object)
+    return collided_objects
+
+def collide(player, objects, dx):
+    player.move(dx, 0)
+    player.update()
+    collided_object = None
+    for object in objects:
+        if pygame.sprite.collide_mask(player, object):
+            collided_object = object
+            break
+    player.move(-dx, 0)
+    player.update()
+
+    return collided_object
+
+
+def handle_move_collisions(player, objects):
     keys = pygame.key.get_pressed()
     # print(keys)
     player.x_vel = 0
-    if keys[pygame.K_LEFT]:
+    collide_left = collide(player, objects, -VEL * 2)
+    collide_right = collide(player, objects, VEL * 2)
+
+    if keys[pygame.K_LEFT] and not collide_left:
         player.move_left(VEL)
-    elif keys[pygame.K_RIGHT]:
+    elif keys[pygame.K_RIGHT] and not collide_right:
         player.move_right(VEL)
+    handle_vertical_collision(player, objects, player.y_vel)
+
 
 
 def main(win):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
+
+    block_size = 96
+
     player = Player(100, 100, 64, 64)
+    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in
+             range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+    objects = [*floor, Block(0, HEIGHT - block_size*2, block_size),
+               Block(block_size * 3, HEIGHT - block_size*4, block_size)]
+
+
+
+
+    offset_x = 0
+    scroll_area_width = 200
+
+
     run = True
 
     while run:
@@ -211,10 +293,18 @@ def main(win):
                 run = False
                 break
 
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE and player.jump_count < 2:
+                    player.jump()
         player.loop(FPS)
-        handle_move(player)
+        handle_move_collisions(player, objects)
         player.update_sprite()
-        draw(win, background, bg_image, player)
+        draw(win, background, bg_image, player, objects, offset_x)
+
+        if ((player.rect.right - offset_x) >= (WIDTH - scroll_area_width) and player.x_vel > 0) or (
+                (player.rect.left - offset_x) <= scroll_area_width and player.x_vel < 0):
+            offset_x += player.x_vel
+
 
 
     pygame.quit()
