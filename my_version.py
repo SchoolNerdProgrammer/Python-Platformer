@@ -318,18 +318,24 @@ def main(win):
 
     block_size = 96
 
-    fire = Fire(300, HEIGHT - block_size - 64, 16, 32)
-    fire.on()
+    fires = [Fire(300, HEIGHT - block_size - 64, 16, 32)]
+
+    for fire in fires:
+        if fire:
+            fire.on()
 
     player = Player(100, 100, 64, 64)
     # Block template = Block(x,y,size)
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in
              range(- 2 * WIDTH // block_size, (WIDTH * 5) // block_size)]
-    objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
+    blocks = [Block(0, HEIGHT - block_size * 2, block_size),
                Block(block_size * 3, HEIGHT - block_size * 4, block_size),
-               fire,
-               Block(block_size * 4, HEIGHT - block_size * 4, block_size),
-               Block(block_size * 5, HEIGHT - block_size * 5, block_size)]
+              Block(block_size * 4, HEIGHT - block_size * 4, block_size),
+              Block(block_size * 5, HEIGHT - block_size * 5, block_size),
+              Block(block_size * 6, HEIGHT - block_size * 6, block_size)]
+
+
+    objects = [*floor, *blocks, *fires]
 
     offset_x = 0
     scroll_area_width = 200
