@@ -3,32 +3,28 @@ from os import listdir
 from os.path import isfile, join
 import random
 from pygame import mixer
+import time
 
 pygame.init()
-pygame.mixer.init()
+pygame.mixer.pre_init(44100, 16, 2, 256)
 pygame.display.init()
 pygame.display.set_caption("Platformer for AI to play.")
 
-#sounds
+# sounds
 BG_MUSIC = pygame.mixer.Sound(join("assets", "background-game-music.mp3"))
-BG_MUSIC.set_volume(0.1)
+BG_MUSIC.set_volume(0.2)
 
 HURT_SOUND = pygame.mixer.Sound(join("assets", "game-hurt.mp3"))
-HURT_SOUND.set_volume(1.0)
+HURT_SOUND.set_volume(1)
 
-#DEATH_SOUND = pygame.mixer.Sound(join("assets", "game-death-sound.mp3"))
-#DEATH_SOUND.set_volume(1.0)
+# DEATH_SOUND = pygame.mixer.Sound(join("assets", "game-death-sound.mp3"))
+# DEATH_SOUND.set_volume(1.0)
 
-#JUMP_SOUND = pygame.mixer.Sound(join("assets", "game-jump-sound.mp3"))
-#JUMP_SOUND.set_volume(1.0)
+# JUMP_SOUND = pygame.mixer.Sound(join("assets", "game-jump-sound.mp3"))
+# JUMP_SOUND.set_volume(1.0)
 
-#GRASS_CRUNCH_RUN = pygame.mixer.Sound(join("assets", "game-grass-run-sound.mp3"))
-#GRASS_CRUNCH_RUN.set_volume(0.2)
-
-
-
-
-
+# GRASS_CRUNCH_RUN = pygame.mixer.Sound(join("assets", "game-grass-run-sound.mp3"))
+# GRASS_CRUNCH_RUN.set_volume(0.2)
 
 
 WIDTH, HEIGHT = 1000, 800
@@ -36,6 +32,10 @@ FPS = 60
 VEL = 5
 
 win = pygame.display.set_mode((WIDTH, HEIGHT))
+
+
+def play_sound_fx(sound):
+        sound.play()
 
 
 def flip(sprites):
@@ -83,7 +83,7 @@ class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
     GRAVITY = 1
     SPRITES = load_sprite_sheets("MainCharacters", "MaskDude", 32, 32, True)
-    ANIMATION_DELAY = 5
+    ANIMATION_DELAY = 6
 
     def __init__(self, x, y, width, height):
         super().__init__()
@@ -95,12 +95,28 @@ class Player(pygame.sprite.Sprite):
         self.x_vel = 0
         self.y_vel = 0
         self.mask = None
-        self.direction = "left"
+        self.direction = "right"
         self.animation_count = 0
         self.fall_count = 0
         self.jump_count = 0
         self.hit = False
         self.hit_count = 0
+        self.health = 100
+
+    def gain_health(self, gain = 1):
+        #(str(self.health) + "gain")
+        if self.health < 100:
+            self.health += gain
+            if self.health > 100:
+                self.health -= (self.health - 100)
+    def lose_health(self,  loss = 5):
+            self.health -= loss
+            print(str(self.health) + "health in lose_health")
+            if self.health < 1:
+                self.die()
+
+    def die(self):
+        return True
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
@@ -110,10 +126,12 @@ class Player(pygame.sprite.Sprite):
             self.fall_count = 0
 
     def was_hit(self):
+        global timer
         self.hit = True
         self.hit_count = 0
-
-
+        if timer > 1000:
+            play_sound_fx(HURT_SOUND)
+            timer = 0
     def move(self, dx, dy):
         self.rect.x += dx
         self.rect.y += dy
@@ -264,7 +282,13 @@ def handle_vertical_collision(player, objects, dy):
     collided_objects = []
     for object in objects:
         if pygame.sprite.collide_mask(player, object):
-            if dy > 0:
+            if dy > 0.2 and player.rect.y + 0.01 * player.height <= object.rect.y:
+                player.rect.y += 1
+                #print(player.rect.y + player.height)
+                #print("player bottom y")
+                #print(object.rect.y)
+                #print("object top left y")
+                #print("collisions occured")
                 player.rect.bottom = object.rect.top
                 player.landed()
             elif dy < 0:
@@ -274,7 +298,7 @@ def handle_vertical_collision(player, objects, dy):
     return collided_objects
 
 
-def collide(player, objects, dx):
+def collide_h(player, objects, dx):
     player.move(dx, -1)
     player.update()
     collided_object = None
@@ -288,12 +312,12 @@ def collide(player, objects, dx):
     return collided_object
 
 
-def handle_move_collisions(player, objects):
+def handle_move_collisions(player, objects, timer):
     keys = pygame.key.get_pressed()
     # print(keys)
     player.x_vel = 0
-    collide_left = collide(player, objects, -VEL * 2)
-    collide_right = collide(player, objects, VEL * 2)
+    collide_left = collide_h(player, objects, -VEL * 2)
+    collide_right = collide_h(player, objects, VEL * 2)
 
     if keys[pygame.K_LEFT] and not collide_left:
         player.move_left(VEL)
@@ -301,52 +325,71 @@ def handle_move_collisions(player, objects):
         player.move_right(VEL)
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
-    to_check = [*vertical_collide, collide_left, collide_right]
-    for object in to_check:
-        if object and (object.name == "fire"):
+    to_check_vertical = [*vertical_collide]
+    to_check_horizontal = [collide_left, collide_right]
+    for object_v in to_check_vertical:
+        if object_v and (object_v.name == "fire"):
             player.was_hit()
-            HURT_SOUND.play()
+    for object_h in to_check_horizontal:
+        if object_h and (object_h.name == "spikes"):
+            player.was_hit()
 
 
 
 def main(win):
+    global timer
+
     clock = pygame.time.Clock()
+    clock_timer = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
 
-    #music
-    BG_MUSIC.play(10000, 0, 3000)
+    timer = 0
+
+    # music
+    BG_MUSIC.play(-1, 0, 3000)
 
     block_size = 96
 
-    fires = [Fire(300, HEIGHT - block_size - 64, 16, 32)]
+    fires = [Fire(block_size + 16, HEIGHT - block_size - 64, 16, 32),
+             Fire(block_size * 4 + (block_size / 2) - 16, HEIGHT - (block_size * 8) - 64, 16, 32),
+             Fire(block_size * 3.5 - 16, HEIGHT - block_size - 64, 16, 32)]
 
     for fire in fires:
-        if fire:
-            fire.on()
+        fire.on()
 
-    player = Player(100, 100, 64, 64)
+    player = Player(0, HEIGHT - (2 * block_size) - 400, 64, 64)
     # Block template = Block(x,y,size)
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in
              range(- 2 * WIDTH // block_size, (WIDTH * 5) // block_size)]
     blocks = [Block(0, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 3, HEIGHT - block_size * 4, block_size),
+              Block(block_size * 3, HEIGHT - block_size * 4, block_size),
               Block(block_size * 4, HEIGHT - block_size * 4, block_size),
               Block(block_size * 5, HEIGHT - block_size * 5, block_size),
-              Block(block_size * 6, HEIGHT - block_size * 6, block_size)]
-
+              Block(block_size * 6, HEIGHT - block_size * 6, block_size),
+              Block(block_size * 7, HEIGHT - block_size * 7, block_size),
+              Block(block_size * 8, HEIGHT - block_size * 7, block_size),
+              Block(block_size * 8, HEIGHT - block_size * 8, block_size),  #####
+              Block(block_size * 8, HEIGHT - block_size * 9, block_size),
+              Block(block_size * 4, HEIGHT - block_size * 8, block_size),
+              Block(block_size * 8, HEIGHT - block_size * 7, block_size),
+              Block(block_size * 8, HEIGHT - block_size * 7, block_size), ]
 
     objects = [*floor, *blocks, *fires]
 
     offset_x = 0
-    scroll_area_width = 200
+    scroll_area_width = 250
 
     offset_y = 0
-    scroll_area_height = 200
+    scroll_area_height = 150
 
     run = True
 
     while run:
         clock.tick(FPS)
+        dt = clock_timer.tick()
+        timer += dt
+
+
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -357,8 +400,9 @@ def main(win):
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
         player.loop(FPS)
-        fire.loop()
-        handle_move_collisions(player, objects)
+        for fire in fires:
+            fire.loop()
+        handle_move_collisions(player, objects, timer)
         player.update_sprite()
         draw(win, background, bg_image, player, objects, offset_x, offset_y)
 
@@ -368,9 +412,10 @@ def main(win):
 
         if (player.rect.top - offset_y) <= scroll_area_height and player.y_vel < 0:
             offset_y += player.y_vel
-        elif (player.rect.bottom - offset_y) >= (HEIGHT - scroll_area_height - player.height) and player.y_vel > 1:
+        elif (player.rect.bottom - offset_y) >= (HEIGHT - scroll_area_height - player.height) and player.y_vel > 0.7:
             offset_y += player.y_vel
-
+        if player.die():
+            pass  #In future will play animation for death, and allow a restart.
     pygame.mixer.quit()
     pygame.quit()
 
